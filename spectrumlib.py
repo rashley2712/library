@@ -15,6 +15,13 @@ class spectrumObject:
 		self.wavelengthUnits = 'unknown'
 		self.fluxUnits = 'unknown'
 		self.objectName = 'unknown'
+
+	def __str__(self):
+		retStr = ""
+		retStr+= "%s\n"%(self.name)
+		retStr+= "Wavelength range: (%4.2f, %4.2f) %s\n"%(self.wavelengthRange[0], self.wavelengthRange[1], self.wavelengthUnits)
+		retStr+= "Flux units: %s"%(self.fluxUnits)
+		return retStr
 		
 	def getProperty(self, property):
 		try:
@@ -46,7 +53,18 @@ class spectrumObject:
 		
 		return self.length
 		
-		
+	
+	def fitPoly(self, degree=3, mask = []):
+		# Apply the mask
+		inputSpectrum = spectrumObject()
+		inputSpectrum.setData(self.wavelengths, self.flux, self.fluxErrors)
+		for m in mask:
+			inputSpectrum.snipWavelengthRange(m[0], m[1])
+		x = [w for w in inputSpectrum.wavelengths]
+		y = [f for f in inputSpectrum.flux]
+		fit = numpy.poly1d(numpy.polyfit(x, y, degree))
+		fittedFlux = fit(self.wavelengths)
+		return fittedFlux
 		
 	def sortData(self):
 		wavelengths = self.wavelengths
@@ -62,9 +80,24 @@ class spectrumObject:
 		# print "num points:", len(self.wavelengths)
 		spline = scipy.interpolate.splrep(self.wavelengths, self.flux, s=0)
 		sampleFlux = scipy.interpolate.splev(sampleWavelengths, spline, der=0)
-		self.wavelengths = sampleWavelengths
+		spline = scipy.interpolate.splrep(self.wavelengths, self.fluxErrors, s=0)
+		self.fluxErrors = scipy.interpolate.splev(sampleWavelengths, spline, der=0)
 		self.flux = sampleFlux
+		self.wavelengths = sampleWavelengths
 		return sampleFlux
+
+	def removeNegatives(self):
+		newFlux = []
+		newFluxErrors = []
+		for w, f, fe in zip(self.wavelengths, self.flux, self.fluxErrors):
+			if f<0: 
+				f = 0
+				fe = 0
+			newFlux.append(f)
+			newFluxErrors.append(fe)
+		self.flux = newFlux
+		self.fluxErrors = newFluxErrors
+
 
 	def writeCSV(self, filename):
 		outputfile = open(filename, 'w')
@@ -110,6 +143,13 @@ class spectrumObject:
 			newFlux.append(f / constant)
 		self.flux = newFlux
 		return 
+
+	def divideArray(self, fluxValues):
+		""" Divides each value of the flux by the corresponding value in the array """
+		if len(self.flux) != len(fluxValues): return
+		self.flux = self.flux/fluxValues
+		self.fluxErrors = self.fluxErrors/fluxValues
+
 
 	def subtractSpectrum(self, subtractSpectrum):
 		if len(self.wavelengths)!=len(subtractSpectrum.wavelengths):
@@ -194,9 +234,9 @@ class spectrumObject:
 		for key in jsonObject.keys():
 			keyString = str(key)
 			value = jsonObject[key]
-			if type(value) is unicode: 
+			if isinstance(value, (str)): 
 				value = str(value)
-			if type(value) is list:
+			if isinstance(value, (list)):
 				value = numpy.array(value)
 			setattr(self, key, value)
 		inputfile.close()
