@@ -2,14 +2,16 @@ import numpy
 import json
 import generallib
 import astropy
-# import slbarycentric
+from astropy.coordinates import SkyCoord, EarthLocation
+import slbarycentric
 import sys
 
 class heliocentric:
 	telescopes = [
 		{ 'name': 'CSS', 'longitude': -110.73167 , 'latitude': 32.41667, 'elev': 2510. },
 		{ 'name': 'SSS', 'longitude': -149.1 , 'latitude': -31.3, 'elev': 1150. },
-		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. }
+		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. },
+		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
 		]
 
 	def __init__(self):
@@ -26,7 +28,7 @@ class heliocentric:
 	def setTarget(self, ra, dec):
 		self.target = { 'ra': ra, 'dec': dec}
 
-	def convertMJD(self, MJD):
+	def convertMJDtoHJD(self, MJD):
 		if self.telescope is None:
 			print("We don't know the location of the telescope. Exiting")
 			return
@@ -36,26 +38,21 @@ class heliocentric:
 		if self.target is None:
 			print("We don't know the coordinates of the target. Exiting.")
 
-		targetRADEC = generalUtils.toSexagesimal((self.target['ra'], self.target['dec']))
+		targetRADEC = generallib.toSexagesimal((self.target['ra'], self.target['dec']))
 		print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
+		print('Observatory: ', self.telescope)
 
 		targetCoords = astropy.coordinates.SkyCoord(self.target['ra'], self.target['dec'], unit='deg')
-		BMJD = []
-		t = MJD[0]
-		observationTime = slbarycentric.Time(t, format='mjd', location = obsLocation)
-		for index, t in enumerate(MJD):
-			# observationTime.__init__(t, format='mjd', location = obsLocation)
-			observationTime = slbarycentric.Time(t, format='mjd', location = obsLocation)
-			delta, bcor = observationTime.bcor(targetCoords)
-			bmjd = float(bcor.mjd)
-			BMJD.append(bmjd)
-			sys.stdout.write("\r[%d/%d]  MJD %5.8f ---> BMJD %5.8f  = %f seconds   "%(index, len(MJD)-1, t, bmjd, delta))
-			sys.stdout.flush()
-			#print("[%d/%d]  MJD %5.8f ---> BMJD %5.8f  = %f seconds   "%(index, len(MJD)-1, t, bmjd, delta))
 
-		print
-
-		return BMJD
+		from astropy import time, coordinates as coord, units as u
+		times = time.Time(MJD, format='mjd', scale='utc', location=obsLocation)
+		ltt_bary = times.light_travel_time(targetCoords)
+		# print(ltt_bary) 
+		time_barycentre = times.tdb + ltt_bary
+		#time_barycentre = times.tdb 
+		corrected_times = time_barycentre + 2400000.5
+		hjd = [t.mjd for t in corrected_times]
+		return hjd
 
 
 class ephemerisObject:
