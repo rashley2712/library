@@ -66,6 +66,10 @@ class ephemerisObject:
 		self.Period_error = 0
 		self.ra = 0
 		self.dec = 0
+		self.gamma = None
+		self.gamma_error = None
+		self.K2 = None
+		self.K2_error = None
 
 	def setCoords(self, ra, dec):
 		self.ra = ra
@@ -78,6 +82,15 @@ class ephemerisObject:
 		phase = (HJD_difference % self.Period) / self.Period
 		#if phase>0.5: phase = phase - 1.0
 		return phase
+
+	def getRV(self, HJD):
+		if self.K2 is None: 
+			print("No RV solution loaded, so cannot determine RV")			
+			return
+		phase = self.getPhase(HJD)
+		RV = self.gamma + self.K2 * numpy.sin(numpy.pi*2.0*phase)
+		return RV
+		
 
 	def getOrbits(self, HJD):
 		HJD_difference = HJD - self.T0
@@ -110,8 +123,7 @@ class ephemerisObject:
 				if tokens[0] == "N": self.N = int(tokens[1])
 				if tokens[0] == "Chi2_red":
 					self.chi2red = float(tokens[1])
-					print("Reduced ChiSq: ", self.chi2red)
-
+				
 
 	def parseCoords(self, coords):
 		print("Given coords:", coords)

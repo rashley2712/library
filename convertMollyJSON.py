@@ -44,7 +44,7 @@ if __name__ == "__main__":
 		spectrum = spectrumlib.spectrumObject()
 		npoints = spectrum.setData(wavelengths, flux, fluxErrors)
 		targetName = spectrum.parseHeaderInfo(head)
-		spectrum.wavelengthUnits = "\\\\A"
+		spectrum.wavelengthUnits = "\\A"
 		spectrum.fluxLabel = r.label
 		spectrum.fluxUnits = r.units
 		# spectrum.fluxUnits = "relative counts"
@@ -57,6 +57,7 @@ if __name__ == "__main__":
 
 	print("%d spectra loaded."%numSpectra)
 
+	count = 0
 	for s in spectra:
 		outname = "%s_%f.json"%(s.objectName, s.HJD)
 		if arg.suffix!=None:
@@ -65,5 +66,7 @@ if __name__ == "__main__":
 			outname = "%s_%f_%s.json"%(s.objectName, ephemeris.getPhase(s.HJD), arg.suffix)
 			
 		print("Writing to %s"%outname)
-		s.writeToJSON(outname)
-		
+		s.writeToJSON(outname, clobber=False)
+		count+=1
+
+	print("Written %d files to disk."%count)

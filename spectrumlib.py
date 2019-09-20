@@ -1,4 +1,4 @@
-import numpy
+import numpy, os
 import json
 import scipy.interpolate
 import scipy.integrate
@@ -211,7 +211,7 @@ class spectrumObject:
 				newFlux.append(f)
 		return (newWavelengths, newFlux)
 
-	def writeToJSON(self, filename):
+	def writeToJSON(self, filename, clobber=True):
 		object = {}
 		for key in self.__dict__.keys():
 			data = getattr(self, key)
@@ -224,6 +224,10 @@ class spectrumObject:
 				data = numpy.array(data).tolist()
 			object[key] = data
 			
+		if not clobber:
+			if os.path.exists(filename): 
+				print("Warning: file %s exists... skipping"%filename)
+				return
 		outputfile = open(filename, 'w')
 		json.dump(object, outputfile, indent=4)
 		outputfile.close()
@@ -319,6 +323,7 @@ class spectrumObject:
 			self.galLongitude = headers['Gal longitude']
 			self.extractPosition = headers['Extract position']
 			self.comment = str(headers['COMMENT'])
+			self.phase = float(header['Orbital phase'])
 		except Exception as e:
 			print(e)
 		
