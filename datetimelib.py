@@ -11,7 +11,8 @@ class heliocentric:
 		{ 'name': 'CSS', 'longitude': -110.73167 , 'latitude': 32.41667, 'elev': 2510. },
 		{ 'name': 'SSS', 'longitude': -149.1 , 'latitude': -31.3, 'elev': 1150. },
 		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. },
-		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
+		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
+		{ 'name': 'W1m', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
 		]
 
 	def __init__(self):
@@ -54,6 +55,33 @@ class heliocentric:
 		hjd = [t.mjd for t in corrected_times]
 		return hjd
 
+	def convertJDtoHJD(self, JD):
+		if self.telescope is None:
+			print("We don't know the location of the telescope. Exiting")
+			return
+
+		obsLocation = astropy.coordinates.EarthLocation(lon = self.telescope['longitude'], lat = self.telescope['latitude'], height = self.telescope['elev'])
+
+		if self.target is None:
+			print("We don't know the coordinates of the target. Exiting.")
+
+		targetRADEC = generallib.toSexagesimal((self.target['ra'], self.target['dec']))
+		print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
+		print('Observatory: ', self.telescope)
+
+		targetCoords = astropy.coordinates.SkyCoord(self.target['ra'], self.target['dec'], unit='deg')
+
+		from astropy import time, coordinates as coord, units as u
+		times = time.Time(JD, format='jd', scale='utc', location=obsLocation)
+		ltt_bary = times.light_travel_time(targetCoords)
+		# print(ltt_bary) 
+		time_barycentre = times.tdb + ltt_bary
+		#time_barycentre = times.tdb 
+		corrected_times = time_barycentre
+		hjd = [t.jd for t in corrected_times]
+		return hjd
+
+
 
 class ephemerisObject:
 	def __init__(self):
@@ -94,6 +122,11 @@ class ephemerisObject:
 		norbits = int(HJD_difference / self.Period)
 		upperorbit = int(round(HJD_difference / self.Period))
 		return norbits, upperorbit
+
+	def getOrbitsSince(self, start, now):
+		HJD_difference = HJD - self.T0
+		norbits = HJD_difference / self.Period
+		return norbits
 
 	def getOffsetOrbits(self, HJD):
 		HJD_difference = HJD - self.T0 - self.Period/2.0
