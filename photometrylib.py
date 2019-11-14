@@ -42,7 +42,7 @@ class target():
 		errorColumn = self.fluxErrorColumn
 		for d in self.data:
 			print(d)
-			if not d[errorColumn] > limit:
+			if not abs(d[errorColumn]) > limit:
 				trimmedData.append(d)
 		print("Trimmed %d points out of %d."%(len(self.data) - len(trimmedData), len(self.data)))
 		self.data = trimmedData
@@ -57,8 +57,10 @@ class target():
 		bins = []
 		phases = []
 		errors = []
+		stddevs = []
 		for bin in range(numBins):
 			if self.debug: print("bin #: %d"%bin)
+			
 			# Find all the datapoints that lie in this bin
 			phaseStart = bin / numBins
 			phaseEnd = (bin+1) / numBins
@@ -69,6 +71,8 @@ class target():
 				if (d['phase']>=phaseStart) and (d['phase']<phaseEnd):
 					binData.append(d)
 			if self.debug: print("%d points in this phase bucket"%len(binData))
+			binNumbers = [d[self.fluxColumn] for d in binData]
+			print(binNumbers)
 			if len(binData)==0:
 				print("WARNING: No data in phase range: %f to %f"%(phaseStart, phaseEnd))
 				mean = None
@@ -88,16 +92,24 @@ class target():
 				squ_sum = 0
 				for d in binData:
 					squ_sum+= (d[self.fluxColumn]-mean)**2 / d[self.fluxErrorColumn]
+				stddev = numpy.sqrt( squ_sum/ N / errorsum)
 				error = numpy.sqrt( squ_sum / N / (N-1) / errorsum)
 				if self.debug: print("Weighted mean: %f [%f]"%(mean, error))
+
+				straightMean = numpy.mean(binNumbers)
+				straightStdDev = numpy.std(binNumbers)
+				error = straightStdDev / numpy.sqrt(len(binNumbers))
+				print("Straight mean: %f [%f] (%f)"%(straightMean, straightStdDev, error))	
 
 			bins.append(mean)
 			phases.append(midPhase)
 			errors.append(error)
+			stddevs.append(stddev)
 		if self.debug: print(phases, bins)
 		self.bins = bins
 		self.phases = phases
 		self.errors = errors
+		self.stddevs = stddevs
 		
 
 	def setHJDs(self, MJD, HJD):
@@ -116,7 +128,14 @@ class target():
 			HJD = correctHelio.convertJDtoHJD(JD)
 			for index, d in enumerate(self.data):
 				d['HJD'] = HJD[index]
+		else:
+			print("No ephemeris loaded.")
 			
+	def computeJDFromMJD(self):
+		for d in self.data:
+			d['JD'] = d['MJD'] + 2400000.5
+			print(d)	
+		
 		
 	def computeHJDs(self):
 		if self.hasEphemeris:
@@ -145,6 +164,59 @@ class target():
 		json.dump(object, outputfile, indent=4)
 		outputfile.close()
 
+	def fakeErrors(self):
+		for d in self.data:
+			d['fluxError'] = 1
+		self.fluxErrorColumn = 'fluxError'
+
+	def removeNaNs(self):
+		newData = []
+		print("Removing NaNs")
+		print("\tOld length: %d"%(len(self.data)))
+		for d in self.data:
+			if numpy.isnan(d[self.fluxColumn]): continue
+			newData.append(d)
+		print("\tNew length: %d"%(len(newData)))
+		self.data = newData
+
+	def trimByErrors(self, error):
+		newData = []
+		for d in self.data:
+			if d[self.fluxErrorColumn] < error:
+				newData.append(d)
+		self.data = newData
+
+	def sigmaClip(self, size, nsigma):
+		flux = self.getColumn(self.fluxColumn)
+		fluxError = self.getColumn(self.fluxErrorColumn)
+		print("In sigmaClip")
+		newData = []
+		for i in range(0, len(flux)-size):
+			subarray = flux[i : i + size]
+			print(subarray)
+			mean = numpy.mean(subarray)
+			std = numpy.std(subarray)
+			nsigma = abs(flux[i]-mean)/std
+			print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
+			if(nsigma>2):
+				print("Rejecting point!")
+				continue
+			newData.append(self.data[i])
+		for i in range(len(flux) - size, len(flux)):
+			subarray = flux[len(flux)-size : ]
+			print(i, subarray)
+			mean = numpy.mean(subarray)
+			std = numpy.std(subarray)
+			nsigma = abs(flux[i]-mean)/std
+			print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
+			if(nsigma>2):
+				print("Rejecting point!")
+				continue
+			newData.append(self.data[i])
+		print("old length %d : new length %d"%(len(self.data), len(newData)))
+		self.data = newData
+			
+		
 	def loadFromJSON(self, filename):
 		inputfile = open(filename, "r")
 		jsonObject = json.load(inputfile)
@@ -165,6 +237,47 @@ class loadPhotometry():
 	def __init__(self, debug=False):
 		self.name = ""
 		self.debug = debug
+
+	def loadFromHST(self, filename):
+		columns = [ {'name': 'MJD',      	  'type':'float'}, 
+					{'name': 'counts',        'type':'float'}
+		]
+
+		data = []
+		HSTFile = open(filename, 'rt')
+		for line in HSTFile:
+			line = line.strip()
+			fields = line.split('\t')
+			print(fields)
+			d = {}
+			for index, column in enumerate(columns):
+				value = fields[index].strip(' \t\n\r')
+				goodline = False
+				try: 
+					if column['type']=='str': value = str(value)
+					if column['type']=='float': value = float(value)
+					if column['type']=='int': value = int(value)
+					d[column['name']] = value
+				except ValueError:
+					print("WARNING: Could not interpret the line [%d]: %s"%(lineNumber, line))
+					break
+				goodline = True
+			if goodline: data.append(d)
+					
+		HSTFile.close()
+
+		object = target("HST data")
+		object.telescope = "HST"
+		for d in data:
+			object.appendData(d)
+		print("%d observations loaded: "%len(object.data))
+		object.fluxColumn = "counts"
+		object.fluxErrorColumn = "none"
+		object.dateColumn = "MJD"
+		object.telescope = "HST"
+		
+		return object
+		
 
 
 	def loadFromW1m(self, filename):

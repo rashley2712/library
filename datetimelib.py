@@ -12,7 +12,9 @@ class heliocentric:
 		{ 'name': 'SSS', 'longitude': -149.1 , 'latitude': -31.3, 'elev': 1150. },
 		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. },
 		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
-		{ 'name': 'W1m', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
+		{ 'name': 'W1m', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
+		{ 'name': 'HST', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
+		
 		]
 
 	def __init__(self):
@@ -124,7 +126,7 @@ class ephemerisObject:
 		return norbits, upperorbit
 
 	def getOrbitsSince(self, start, now):
-		HJD_difference = HJD - self.T0
+		HJD_difference = now - start
 		norbits = HJD_difference / self.Period
 		return norbits
 

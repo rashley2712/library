@@ -79,6 +79,14 @@ def formatValueError(value, error, significant = 1):
 	
 def changeExtension(filename, extension):
 	return os.path.splitext(filename)[0] + "." + extension 
+
+def addSuffixToFilename(filename, suffix):
+	
+	firstPart = os.path.splitext(filename)[0]
+	extension = os.path.splitext(filename)[1]
+	newFilename = firstPart + "_" + suffix + extension
+
+	return newFilename
 	
 def writePNG(imageArray, filename, caption = ""):
 	""" Writes to a PNG file using the PIL library. Adds a caption if sent in the parameters. Also adds a .png extension if it isn't already there in 'filename' """
