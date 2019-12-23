@@ -65,7 +65,33 @@ class spectrumObject:
 		fit = numpy.poly1d(numpy.polyfit(x, y, degree))
 		fittedFlux = fit(self.wavelengths)
 		return fittedFlux
+
+	def rebin(self, factor = 5):
+		wavelengths = self.wavelengths
+		fluxes = self.flux
+		fluxErrors = self.fluxErrors
+		steps = int(len(wavelengths) / factor)
+		newLambdas = []
+		newFluxes = []
+		for n in range(steps):
+			startIndex = n*factor
+			lambdas = []
+			sampleFluxes = []
+
+			for f in range(factor):
+				lambdas.append(wavelengths[startIndex+f])
+				sampleFluxes.append(fluxes[startIndex+f])
+			newLambda = numpy.mean(lambdas)
+			newFlux = numpy.mean(sampleFluxes)
+			newLambdas.append(newLambda)
+			newFluxes.append(newFlux)
+			print(lambdas, ':', newLambda)
+			print(sampleFluxes, ':', newFlux)
 		
+		self.wavelengths = newLambdas
+		self.flux = newFluxes
+		print(len(self.wavelengths), len(self.flux))
+
 	def sortData(self):
 		wavelengths = self.wavelengths
 		fluxes = self.flux
@@ -188,7 +214,18 @@ class spectrumObject:
 		
 	def convertFluxes(self):
 		print("Current fluxUnits are:", self.fluxUnits)
-		print("Converting from mJy to ")
+		print("Converting from mJy to erg/s/cm^2/A")
+		c = 3E8
+		newFlux = []
+		newFluxErrors = []
+		for w, f, fe in zip(self.wavelengths, self.flux, self.fluxErrors):
+			flambda = f * 1E-16 * c / (w*w)
+			error = fe * 1E-16 * c / (w*w)
+			newFlux.append(flambda)
+			newFluxErrors.append(error)
+		self.flux = newFlux 
+		self.fluxErrors = newFluxErrors
+		self.fluxUnits = "erg/s/cm^2/A"
 		
 	def getFlux(self):
 		return self.flux

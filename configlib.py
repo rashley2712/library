@@ -23,6 +23,35 @@ class configClass():
 				setattr(self, setting['name'], (float(fields[1]), float(fields[2])))
 			if setting['type'] == "integer":
 				setattr(self, setting['name'], int(fields[1]))
+			if setting['type'] == "float":
+				setattr(self, setting['name'], float(fields[1]))
+			if setting['type'] == 'boolean':
+				if fields[1].upper() == "TRUE":
+					setattr(self, setting['name'], True)
+				else:
+					setattr(self, setting['name'], False)
+			if setting['type'] == "label":
+				if hasattr(self, 'label'):
+					print("label already exists!")
+					if not hasattr(self, 'labels'): self.labels = []
+					self.labels.append(self.label)
+					print("Current label", self.label)
+					multipleLabels = True
+				else:
+					multipleLabels = False
+				labelObject = {}
+				labelObject['x'] = float(fields[1])
+				labelObject['y'] = float(fields[2])
+				text = ""
+				for piece in fields[3:]:
+					text+=piece + " "
+				labelObject['text'] = text
+				print(labelObject)
+				setattr(self, setting['name'], labelObject)
+				if multipleLabels:
+					print("Adding to ", self.labels)
+					self.labels.append(labelObject)
+					 
 		except ValueError:
 			print("Warning: Could not read the setting for: %s"%(setting['name']))
 
@@ -40,6 +69,7 @@ class configClass():
 			return
 		for line in fileHandle:
 			line = line.strip()
+			if len(line) == 0: continue
 			if line[0]=='#': 
 				self.comments+= line[1:] + "\n"
 				continue
@@ -77,7 +107,15 @@ class configClass():
 			'description': 'Title of the plot.',
 		}
 		self.settings.append(setting)
+		setting = { 'name' : 'stacked', 'type' : 'boolean', 'description': 'Plot a stacked plot.', 'default':'false'}
+		self.settings.append(setting)
+		setting = { 'name' : 'offset', 'type' : 'float', 'description': 'Offset for the stacked plots.', 'default':0}
+		self.settings.append(setting)
+		setting = { 'name' : 'label', 'type' : 'label', 'description': 'Label to add to the plot. format: x y string'}
+		self.settings.append(setting)
 		
+
+
 		for setting in self.settings:
 			try:
 				setattr(self, setting['name'], setting['default'])

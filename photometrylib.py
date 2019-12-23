@@ -94,12 +94,12 @@ class target():
 					squ_sum+= (d[self.fluxColumn]-mean)**2 / d[self.fluxErrorColumn]
 				stddev = numpy.sqrt( squ_sum/ N / errorsum)
 				error = numpy.sqrt( squ_sum / N / (N-1) / errorsum)
-				if self.debug: print("Weighted mean: %f [%f]"%(mean, error))
+				print("Weighted mean: %f [%f]"%(mean, error))
 
 				straightMean = numpy.mean(binNumbers)
 				straightStdDev = numpy.std(binNumbers)
-				error = straightStdDev / numpy.sqrt(len(binNumbers))
-				print("Straight mean: %f [%f] (%f)"%(straightMean, straightStdDev, error))	
+				sterror = straightStdDev / numpy.sqrt(len(binNumbers))
+				print("Straight mean: %f [%f] (%f)"%(straightMean, straightStdDev, sterror))	
 
 			bins.append(mean)
 			phases.append(midPhase)
@@ -239,7 +239,7 @@ class loadPhotometry():
 		self.debug = debug
 
 	def loadFromHST(self, filename):
-		columns = [ {'name': 'MJD',      	  'type':'float'}, 
+		columns = [ {'name': 'JD',      	  'type':'float'}, 
 					{'name': 'counts',        'type':'float'}
 		]
 
@@ -267,6 +267,7 @@ class loadPhotometry():
 		HSTFile.close()
 
 		object = target("HST data")
+		object.source = "HST"
 		object.telescope = "HST"
 		for d in data:
 			object.appendData(d)
@@ -372,6 +373,7 @@ class loadPhotometry():
 			comments, data = readFromFile(filename, comparison)
 			object = target("comparison %d"%comparison)
 			object.telescope = "W1m"
+			object.source = "W1m"
 			for d in data:
 				object.appendData(d)
 			object.fluxColumn = "star"
@@ -428,6 +430,7 @@ class loadPhotometry():
 			if(self.debug): print(d)
 			
 		object = target("ASASSN_data")
+		object.source = "ASAS-SN"
 		object.telescope = "ASASSN"
 		for d in data:
 			object.appendData(d)
@@ -438,6 +441,52 @@ class loadPhotometry():
 
 		return object
 
+
+	def loadFromAAVSO(self, filename):
+		columns = [ {'name': 'rowID',         'type':'int'}, 
+					{'name': 'target',        'type':'string'},
+					{'name': 'JD',            'type':'float'},
+					{'name': 'date',          'type':'string'},
+					{'name': 'mag',           'type':'float'},
+					{'name': 'mag_err',       'type':'float'},
+					{'name': 'filter',        'type':'string'},
+					{'name': 'observer',      'type':'string'} ]
+		
+		aavsoFile = open(filename, 'rt')
+
+		self.debug = True
+		comments = ""
+		data = []
+		for line in aavsoFile:
+			line = line.strip()
+			fields = line.split(',')
+			if(line[0] == ","):
+				comments+= line + "\n"
+				continue
+			print(fields)
+			d = {}
+			for index, column in enumerate(columns):
+				value = fields[index].strip(' \t\n\r')
+				if column['type']=='str': value = str(value)
+				if column['type']=='float': value = float(value)
+				if column['type']=='int': value = int(value)
+				d[column['name']] = value
+			if(self.debug): print(d)
+			data.append(d)
+		aavsoFile.close()
+
+		object = target("AAVSO target")
+		object.telescope = "AAVSO network"
+		object.source = "AAVSO"
+		for d in data:
+			object.appendData(d)
+		object.fluxColumn = "mag"
+		object.fluxErrorColumn = "mag_err"
+		object.dateColumn = "JD"
+
+	
+		return object
+	
 
 	def loadFromSuperWASP(self, filename):
 		columns = [ {'name': 'TMID',          'type':'int'}, 
@@ -477,6 +526,7 @@ class loadPhotometry():
 
 		object = target("SWASP_data")
 		object.telescope = "SuperWASP"
+		object.source = "SWASP"
 		for d in data:
 			object.appendData(d)
 		object.fluxColumn = "tammag2"
@@ -559,6 +609,7 @@ class loadPhotometry():
 		
 		for id in ids:
 			o = target(id)
+			o.source = "CRTS"
 			for d in data:
 				if d['ID'] == o.id:
 					o.appendData(d)
