@@ -13,10 +13,10 @@ class heliocentric:
 		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. },
 		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
 		{ 'name': 'W1m', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
-		{ 'name': 'HST', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. }
-		
+		{ 'name': 'HST', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
+		{ 'name': 'Arto', 'longitude': 26.6 , 'latitude': 62.15, 'elev': 150. }		
 		]
-
+	
 	def __init__(self):
 		self.telescope = None
 		self.target = None

@@ -164,6 +164,10 @@ class target():
 		json.dump(object, outputfile, indent=4)
 		outputfile.close()
 
+	def duplicateColumn(self, old, new):
+		for d in self.data:
+			d[new] = d[old]
+
 	def fakeErrors(self):
 		for d in self.data:
 			d['fluxError'] = 1
@@ -176,6 +180,16 @@ class target():
 		for d in self.data:
 			if numpy.isnan(d[self.fluxColumn]): continue
 			newData.append(d)
+		print("\tNew length: %d"%(len(newData)))
+		self.data = newData
+
+	def trimDates(self, startDate, endDate, dateColumn):
+		newData = []
+		print("Trimming dates in range (%f, %f)."%(startDate, endDate))
+		print("\tOld length: %d"%(len(self.data)))
+		for d in self.data:
+			if d[dateColumn]<startDate or d[dateColumn]>endDate:
+				newData.append(d)
 		print("\tNew length: %d"%(len(newData)))
 		self.data = newData
 
@@ -388,6 +402,33 @@ class loadPhotometry():
 		return objects
 
 
+	def loadFromASASSNJSON(self, filename):
+		inputfile = open(filename, "r")
+		jsonObjectList = json.load(inputfile)
+		inputfile.close()
+		
+		data = []
+		for jo in jsonObjectList:
+			if jo['mag_err']==99.99: 
+				jo['limit'] = 'upper'
+				jo['mag_err'] = 0
+			else:
+				jo['limit'] = 'value'
+			print(jo)
+			data.append(jo)
+		
+		
+		object = target("ASASSN_data")
+		object.source = "ASAS-SN"
+		object.telescope = "ASASSN"
+		for d in data:
+			object.appendData(d)
+		print("%d observations loaded: "%len(object.data))
+		object.fluxColumn = "mag"
+		object.fluxErrorColumn = "mag_err"
+		object.dateColumn = "hjd"
+
+		return object
 
 	def loadFromASASSN(self, filename):
 		columns = [ {'name': 'HJD',           'type':'float'}, 
@@ -442,6 +483,60 @@ class loadPhotometry():
 		return object
 
 
+
+
+	def loadFromAAVSOArto(self, filename):
+		columns = [ {'name': 'JD',          'type':'float'}, 
+					{'name': 'mag',         'type':'float'},
+					{'name': 'fainterthan', 'type':'float'},
+					{'name': 'mag_err',     'type':'float'},
+					{'name': 'uncertaintyhq', 'type':'string'},
+					{'name': 'band', 		'type':'int'} ]
+
+		aavsoFile = open(filename, 'rt')
+
+		self.debug = True
+		comments = ""
+		data = []
+		rejectedLines = []
+		for index, line in enumerate(aavsoFile):
+			if index==0:
+				headings = line.strip()
+				continue
+			fields = line.strip().split('\t')
+			print(fields)
+			d = {}
+			reject = False
+			for index, column in enumerate(columns):
+				value = fields[index].strip(' \t\n\r')
+				try:
+					if column['type']=='str': value = str(value)
+					if column['type']=='float': value = float(value)
+					if column['type']=='int': value = int(value)
+					d[column['name']] = value
+				except ValueError as e:
+					#print(e)
+					#print("line number: ", index)
+					rejectedLines.append(line.strip())
+					reject = True
+			if(self.debug): print(d)
+			if not reject: data.append(d)
+				
+		print("%d rejected lines"%len(rejectedLines))
+		aavsoFile.close()
+		object = target("AAVSO target")
+		object.telescope = "Arto"
+		object.source = "AAVSO"
+		for d in data:
+			object.appendData(d)
+		object.fluxColumn = "mag"
+		object.fluxErrorColumn = "mag_err"
+		object.dateColumn = "JD"
+		print("%d data points loaded."%len(data))
+		return object
+
+
+
 	def loadFromAAVSO(self, filename):
 		columns = [ {'name': 'rowID',         'type':'int'}, 
 					{'name': 'target',        'type':'string'},
@@ -463,7 +558,6 @@ class loadPhotometry():
 			if(line[0] == ","):
 				comments+= line + "\n"
 				continue
-			print(fields)
 			d = {}
 			for index, column in enumerate(columns):
 				value = fields[index].strip(' \t\n\r')
@@ -621,3 +715,46 @@ class loadPhotometry():
 		print("%d targets loaded"%len(objects))
 
 		return objects
+
+	def loadFromArto(self, filename):
+		columns = [ {'name': 'Object',        'type':'string'}, 
+					{'name': 'JD',            'type':'float'},
+					{'name': 'mag',           'type':'float'},
+					{'name': 'mag_err',     'type':'float'} ]
+		
+		artoFile = open(filename, 'rt')
+		comments = ""
+		data = []
+		for line in artoFile:
+			line = line.strip()
+			if(line[0] == "#"):
+				comments+= line + "\n"
+				continue
+			fields = line.split(',')
+			if self.debug: print(fields)
+			d = {}
+			limit = 'value'
+			for index, column in enumerate(columns):
+				value = fields[index].strip(' \t\n\r')
+				if value[0]=='<': 
+					value = value[1:]
+					limit = 'upper'
+				if column['type']=='str': value = str(value)
+				if column['type']=='float': value = float(value)
+				if column['type']=='int': value = int(value)
+				d[column['name']] = value
+			d['limit'] = limit
+			if(self.debug): print(d)
+			data.append(d)
+
+		object = target(data[0]['Object'])	
+		object.telescope = "Arto"
+		object.source = "Arto"
+		for d in data:
+			object.appendData(d)
+		object.fluxColumn = "mag"
+		object.fluxErrorColumn = "mag_err"
+		object.dateColumn = "JD"
+
+		artoFile.close()
+		return object
