@@ -3,7 +3,7 @@ import sys
 import numpy, math
 import argparse
 import trm.molly
-import spectrumlib
+import spectrumlib, datetimelib
 
 if __name__ == "__main__":
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 	if arg.e!=None:
 		# Load the ephemeris file
 		hasEphemeris = True
-		ephemeris = timeClasses.ephemerisObject()
+		ephemeris = datetimelib.ephemerisObject()
 		ephemeris.loadFromFile(arg.e)
 		print(ephemeris)
 	else:
@@ -47,6 +47,7 @@ if __name__ == "__main__":
 		spectrum.wavelengthUnits = "\\A"
 		spectrum.fluxLabel = r.label
 		spectrum.fluxUnits = r.units
+		print("Flux units:", spectrum.fluxUnits)
 		# spectrum.fluxUnits = "relative counts"
 		
 		print("Parsed headers of %s for HJD: %f"%(targetName, spectrum.HJD))
@@ -60,10 +61,11 @@ if __name__ == "__main__":
 	count = 0
 	for s in spectra:
 		outname = "%s_%f.json"%(s.objectName, s.HJD)
-		if arg.suffix!=None:
-			outname = "%s_%f_%s.json"%(s.objectName, s.HJD, arg.suffix)
 		if hasEphemeris:
-			outname = "%s_%f_%s.json"%(s.objectName, ephemeris.getPhase(s.HJD), arg.suffix)
+			if arg.suffix!=None:
+				outname = "%s_%f_%s.json"%(s.objectName, ephemeris.getPhase(s.HJD), arg.suffix)
+			else: 
+				outname = "%s_%f.json"%(s.objectName, ephemeris.getPhase(s.HJD))
 			
 		print("Writing to %s"%outname)
 		s.writeToJSON(outname, clobber=False)

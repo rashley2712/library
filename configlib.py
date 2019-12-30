@@ -1,3 +1,4 @@
+import inspect
 
 class configClass():
 	def __init__(self, debug = False):
@@ -5,6 +6,7 @@ class configClass():
 		self.comments = ""
 		self.settings = []
 		self.defaultSettings()
+		self._loaded = False
 		
 	def show(self):
 		for s in self.settings:
@@ -12,6 +14,36 @@ class configClass():
 		
 	def addSetting(self, name, type):
 		self.settings[name] = "test"
+
+	def setProperty(self, name, value):
+		setattr(self, name, value)
+
+	def setProperties(self, properties):
+		for key in properties.keys():
+			setattr(self, key, properties[key])
+			if self.debug: print("Setting:", key, properties[key])
+
+
+	def listProperties(self):
+		properties = self.__dict__.keys()
+		usableProperties = []
+		for p in properties:
+			if p[0] == '_': continue
+			usableProperties.append(p)
+		return usableProperties
+
+	def showProperties(self):
+		properties = self.__dict__.keys()
+		usableProperties = []
+		for p in properties:
+			if p[0] == '_': continue
+			usableProperties.append(p)
+		
+		retString = ""
+		for p in usableProperties:
+			retString+= p + " " + str(getattr(self, p)) + "\n"
+		
+		return retString
 
 	def loadSetting(self, setting, original):
 		fields = original.split()
@@ -88,6 +120,8 @@ class configClass():
 		fileHandle.close()
 
 		if self.debug: print("Comments", self.comments)
+		self._loaded = True
+
 
 
 	def defaultSettings(self):

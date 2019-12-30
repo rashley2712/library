@@ -124,6 +124,20 @@ class spectrumObject:
 		self.flux = newFlux
 		self.fluxErrors = newFluxErrors
 
+	def removeZeros(self):
+		newWavelengths = []
+		newFlux = []
+		newFluxErrors = []
+		for w, f, fe in zip(self.wavelengths, self.flux, self.fluxErrors):
+			if f==0: continue 
+			newWavelengths.append(w)
+			newFlux.append(f)
+			newFluxErrors.append(fe)
+		self.wavelengths = newWavelengths
+		self.flux = newFlux
+		self.fluxErrors = newFluxErrors
+
+
 
 	def writeCSV(self, filename):
 		outputfile = open(filename, 'w')
@@ -229,6 +243,9 @@ class spectrumObject:
 		
 	def getFlux(self):
 		return self.flux
+	
+	def getFluxErrors(self):
+		return self.fluxErrors
 		
 	def getNearestFlux(self, wavelength):
 		minDistance = self.wavelengthRange[1]
@@ -268,6 +285,12 @@ class spectrumObject:
 		outputfile = open(filename, 'w')
 		json.dump(object, outputfile, indent=4)
 		outputfile.close()
+
+	def writeToMollyText(self, filename):
+		outputFile = open(filename, 'wt')
+		for w, f, fe in zip(self.wavelengths, self.flux, self.fluxErrors):
+			outputFile.write("%f\t%f\t%f\n"%(w, f, fe))
+		outputFile.close()
 	
 	def loadFromJSON(self, filename):
 		inputfile = open(filename, "r")
