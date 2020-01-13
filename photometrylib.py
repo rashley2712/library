@@ -25,6 +25,10 @@ class target():
 	
 	def getColumn(self, columnName):
 		return [d[columnName] for d in self.data]	
+
+	def setColumn(self, name, data):
+		for index, d in enumerate(self.data):
+			d[name] = data[index]
 		
 	def loadEphemeris(self, filename="none"):
 		# Look in the local directory for a file called 'id'-ephem.dat and load it
@@ -34,7 +38,6 @@ class target():
 			self.ephemeris.loadFromFile(filename)
 			self.hasEphemeris = True
 			return True
-		
 		return False
 
 	def trimLargeErrors(self, limit = 0.25):
@@ -65,16 +68,16 @@ class target():
 			phaseStart = bin / numBins
 			phaseEnd = (bin+1) / numBins
 			midPhase = (phaseStart+phaseEnd)/2.
-			self.debug: print("phase range: %f to %f"%(phaseStart, phaseEnd))
+			if self.debug: print("phase range: %f to %f"%(phaseStart, phaseEnd))
 			binData = []
 			for d in self.data:
 				if (d['phase']>=phaseStart) and (d['phase']<phaseEnd):
 					binData.append(d)
 			if self.debug: print("%d points in this phase bucket"%len(binData))
 			binNumbers = [d[self.fluxColumn] for d in binData]
-			print(binNumbers)
+			if self.debug: print(binNumbers)
 			if len(binData)==0:
-				print("WARNING: No data in phase range: %f to %f"%(phaseStart, phaseEnd))
+				if self.debug: print("WARNING: No data in phase range: %f to %f"%(phaseStart, phaseEnd))
 				mean = None
 				error = None
 				continue
@@ -86,30 +89,35 @@ class target():
 				errorsum = 0
 				N = len(binData)
 				for d in binData:
-					sum+= d[self.fluxColumn] / d[self.fluxErrorColumn]
-					errorsum+= 1 / d[self.fluxErrorColumn]
+					weight = 1/(d[self.fluxErrorColumn]**2)
+					sum+= d[self.fluxColumn] * weight
+					errorsum+= weight
+				weighted_mean = sum/errorsum
 				mean = sum/errorsum
-				squ_sum = 0
-				for d in binData:
-					squ_sum+= (d[self.fluxColumn]-mean)**2 / d[self.fluxErrorColumn]
-				stddev = numpy.sqrt( squ_sum/ N / errorsum)
-				error = numpy.sqrt( squ_sum / N / (N-1) / errorsum)
-				print("Weighted mean: %f [%f]"%(mean, error))
-
-				straightMean = numpy.mean(binNumbers)
-				straightStdDev = numpy.std(binNumbers)
-				sterror = straightStdDev / numpy.sqrt(len(binNumbers))
-				print("Straight mean: %f [%f] (%f)"%(straightMean, straightStdDev, sterror))	
+				weighted_error = numpy.sqrt(1/errorsum)
+				#squ_sum = 0
+				#for d in binData:
+				#	squ_sum+= (d[self.fluxColumn]-mean)**2 / d[self.fluxErrorColumn]
+				#stddev = numpy.sqrt( squ_sum/ N / errorsum)
+				#error = numpy.sqrt( squ_sum / N / (N-1) / errorsum)
+				#if self.debug: print("Weighted mean: %f [%f]"%(mean, error))
+				if self.debug: print("Weighted mean: %f [%f]"%(weighted_mean, weighted_error))
+				mean = weighted_mean
+				error = weighted_error
+				#straightMean = numpy.mean(binNumbers)
+				#straightStdDev = numpy.std(binNumbers)
+				#sterror = straightStdDev / numpy.sqrt(len(binNumbers))
+				#if self.debug: print("Straight mean: %f [%f] (%f)"%(straightMean, straightStdDev, sterror))	
 
 			bins.append(mean)
 			phases.append(midPhase)
 			errors.append(error)
-			stddevs.append(stddev)
-		if self.debug: print(phases, bins)
+			#stddevs.append(stddev)
+		#if self.debug: print(phases, bins)
 		self.bins = bins
 		self.phases = phases
 		self.errors = errors
-		self.stddevs = stddevs
+		#self.stddevs = stddevs
 		
 
 	def setHJDs(self, MJD, HJD):
@@ -120,7 +128,7 @@ class target():
 
 	def computeHJDfromJD(self):
 		if self.hasEphemeris:
-			print(self.id, self.ephemeris)
+			#print(self.id, self.ephemeris)
 			JD = self.getColumn('JD')
 			correctHelio = datetimelib.heliocentric()
 			correctHelio.setTelescope(self.telescope) 
@@ -130,11 +138,12 @@ class target():
 				d['HJD'] = HJD[index]
 		else:
 			print("No ephemeris loaded.")
+		self.dateColumn = 'HJD'
 			
-	def computeJDFromMJD(self):
+	def computeJDfromMJD(self):
 		for d in self.data:
 			d['JD'] = d['MJD'] + 2400000.5
-			print(d)	
+		self.dateColumn = 'JD'		
 		
 		
 	def computeHJDs(self):
@@ -203,31 +212,32 @@ class target():
 	def sigmaClip(self, size, nsigma):
 		flux = self.getColumn(self.fluxColumn)
 		fluxError = self.getColumn(self.fluxErrorColumn)
-		print("In sigmaClip")
+		self.debug=False
+		if self.debug: print("In sigmaClip")
 		newData = []
 		for i in range(0, len(flux)-size):
 			subarray = flux[i : i + size]
-			print(subarray)
+			if self.debug: print(subarray)
 			mean = numpy.mean(subarray)
 			std = numpy.std(subarray)
 			nsigma = abs(flux[i]-mean)/std
-			print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
+			if self.debug: print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
 			if(nsigma>2):
-				print("Rejecting point!")
+				if self.debug: print("Rejecting point!")
 				continue
 			newData.append(self.data[i])
 		for i in range(len(flux) - size, len(flux)):
 			subarray = flux[len(flux)-size : ]
-			print(i, subarray)
+			if self.debug: print(i, subarray)
 			mean = numpy.mean(subarray)
 			std = numpy.std(subarray)
 			nsigma = abs(flux[i]-mean)/std
-			print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
+			if self.debug: print("mean: %f, stddev %f, nsigma %f"%(mean, std, nsigma))
 			if(nsigma>2):
-				print("Rejecting point!")
+				if self.debug: print("Rejecting point!")
 				continue
 			newData.append(self.data[i])
-		print("old length %d : new length %d"%(len(self.data), len(newData)))
+		if self.debug: print("old length %d : new length %d"%(len(self.data), len(newData)))
 		self.data = newData
 			
 		
@@ -630,7 +640,50 @@ class loadPhotometry():
 		return object
 
 			
-		
+	def loadFromCRTSDR3(self, filename):
+		columns = [ {'name': 'ID',        'type':'str'}, 
+					{'name': 'ra',        'type':'float'},
+					{'name': 'dec',       'type':'float'},
+					{'name': 'mag',       'type':'float'},
+					{'name': 'err',       'type':'float'},
+					{'name': 'MJD',       'type':'float'},
+					{'name': 'Sep',       'type':'float'} ]
+				
+		CRTSFile = open(filename, 'rt')
+		comments = ""
+		data = []
+		for index, line in enumerate(CRTSFile):
+			line = line.strip()
+			if(index==0):
+				comments+=line + "\n"
+				continue
+			if(line[0] == "#"):
+				comments+= line + "\n"
+				continue
+			fields = line.split(',')
+			if self.debug: print(fields)
+			d = {}
+			for index, column in enumerate(columns):
+				value = fields[index].strip(' \t\n\r')
+				if column['type']=='str': value = str(value)
+				if column['type']=='float': value = float(value)
+				if column['type']=='int': value = int(value)
+				d[column['name']] = value
+			if(self.debug): print(d)
+			data.append(d)
+
+		object = target(data[0]['ID'])	
+		object.telescope = "CSS"
+		object.source = "CRTS"
+		for d in data:
+			object.appendData(d)
+		object.fluxColumn = "mag"
+		object.fluxErrorColumn = "mag_err"
+		object.dateColumn = "MJD"
+
+		CRTSFile.close()
+		return [object]
+
 
 	def loadFromCRTS(self, filename):
 		columns = [ {'name': 'ID',        'type':'str'}, 
@@ -758,3 +811,284 @@ class loadPhotometry():
 
 		artoFile.close()
 		return object
+
+	def loadFromUCAM(self, filename):
+		""" Loads the photometry data from a log file created by Tom Marsh's ULTRACAM pipeline. """
+		ultracam = False
+		ultraspec = True
+		inputFile = open(filename, 'r')
+		objects = []
+		xValues = []
+		yValues = []
+		frameList = []
+		headerBlock = ""
+		runName = "--unknown--"
+		telescope = "--unknown--"
+		targetName = "--unknown--"
+		filterName = "--unknown--"
+		PI = "--unknown--"
+		columnCount = 0
+		uniqueCCDs = []
+		for line in inputFile:
+			if line[0] == '#':
+				headerBlock+=line
+				if ("target" in line) and ("estimated" not in line):
+					targetName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Target: %s"%targetName)
+				if ("filters" in line):
+					filterName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Filters: %s"%filterName)
+				if ("Telescope" in line) and ("observing" not in line):
+					telescopeName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Telescope name: %s"%telescopeName)
+				if (" pi " in line):
+					PI = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("PI: %s"%PI)
+				if (" Data file name " in line):
+					runName = generallib.getBetweenChars(line, '=', '\n').strip()
+					if self.debug: print("run data file: %s"%runName)
+				if (" Server file name " in line):
+					runName = generallib.getBetweenChars(line, '=', '\n').strip()
+					if self.debug: print("run data file: %s"%runName)
+					
+			if line[0] != '#':
+				params = line.split()
+				# print params
+				frameIndex = int(params[0])
+				CCD = int(params[4])
+				if CCD not in uniqueCCDs: uniqueCCDs.append(CCD)
+				frameList.append(frameIndex)
+				columnCount = len(params)
+		firstFrame = frameList[0]
+		
+		numApertures = int( ((columnCount-7)/14) )
+		if self.debug: print("ColumnCount: ", columnCount, "which means %d apertures."%numApertures)
+		# frameList = generalUtils.removeDuplicatesFromList(frameList)
+		if self.debug: print("The run in file %s contains %d frames. Start frame: %d End frame: %d"%(filename, len(frameList), min(frameList), max(frameList)))
+		if len(uniqueCCDs) == 3:
+			if self.debug: print("This file has 3 CCDs. It is an ULTRACAM file.")
+			ultracam = True
+			ultraspec = False
+		if len(uniqueCCDs) == 1: 
+			if self.debug: print("This file has 1 CCD. It is an ULTRASPEC file.")
+			ultracam = False
+			ultraspec = True
+
+		if (ultracam): CCDs = [1, 2, 3]
+		else: CCDs = [1]
+		for CCD in CCDs: 
+			for aperture in range(1, numApertures+1):
+				apertureIndex = 14*(aperture-1) + 7
+				if self.debug: print("Reading data for aperture %d, CCD %d"%(aperture, CCD))
+				inputFile.seek(0)
+				MJDs = []
+				counts = []
+				skys = []
+				sigmas = []
+				errors = []
+				timeFlags = []
+				exposures = []
+				FWHMs = []
+				betas = []
+				xs = []
+				ys = []
+				lineCounter = 0
+				data = []
+				for line in inputFile:
+					lineCounter+= 1
+					if self.debug: 
+						sys.stdout.write("\rLine number: %d    "%(lineCounter))
+						sys.stdout.flush()
+					if line[0] != '#':
+						params = line.split()
+						# print params
+						CCDValue = int(params[4])
+						apertureValue = int(params[apertureIndex])
+						logEntry = {}
+						if CCDValue == CCD: 
+							frameIndex = int(params[0])
+							MJD = float(params[1])
+							exposure = float(params[3])
+							FWHM = float(params[5])
+							beta = float(params[6])
+							x = float(params[apertureIndex + 1])
+							y = float(params[apertureIndex + 2])
+							counts = float(params[apertureIndex + 7])
+							counts_err = float(params[apertureIndex + 8])
+							sky = float(params[apertureIndex + 9])
+							errorflag = int(params[apertureIndex + 13])
+							logEntry = {
+								'MJD': MJD,
+								'exposure': exposure, 
+								'FWHM': FWHM,
+								'beta': beta,
+								'x': x,
+								'y': y,
+								'counts' : counts,
+								'counts_err' : counts_err,
+								'sky' : sky,
+								'errorflag' : errorflag
+							}
+							if errorflag<8: data.append(logEntry)
+						
+			
+				object = target(targetName + "_" + str(apertureValue))
+				object.telescope = telescopeName
+				if telescopeName=="Thai National Observatory 2.4m": object.telescope = "TNT"
+				if ultracam: object.source = "ULTRACAM"
+				else: object.source = "ULTRASPEC"
+				for d in data:
+					object.appendData(d)
+				object.fluxColumn = "counts"
+				object.fluxErrorColumn = "counts_err"
+				object.dateColumn = "MJD"
+				objects.append(object)
+				if self.debug: print()
+		inputFile.close()
+		return objects
+
+
+	def loadFromHCAM(self, filename):
+		""" Loads the photometry data from a log file created by Tom Marsh's HIPERCAM pipeline. """
+		ultracam = False
+		ultraspec = True
+		hipercam = False
+		inputFile = open(filename, 'r')
+		objects = []
+		xValues = []
+		yValues = []
+		frameList = []
+		headerBlock = ""
+		runName = "--unknown--"
+		telescopeName = "--unknown--"
+		targetName = "--unknown--"
+		filterName = "--unknown--"
+		PI = "--unknown--"
+		columnCount = 0
+		uniqueCCDs = []
+		for line in inputFile:
+			if line[0] == '#':
+				headerBlock+=line
+				if ("target" in line) and ("estimated" not in line):
+					targetName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Target: %s"%targetName)
+				if ("log" in line):
+					targetName = line.split('=')[-1].strip()
+					if self.debug: print("Log: %s"%filterName)
+				if ("filters" in line):
+					filterName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Filters: %s"%filterName)
+				if ("Telescope" in line) and ("observing" not in line):
+					telescopeName = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("Telescope name: %s"%telescopeName)
+				if (" pi " in line):
+					PI = generallib.getBetweenChars(line, '=', '/').strip()
+					if self.debug: print("PI: %s"%PI)
+				if (" Data file name " in line):
+					runName = generallib.getBetweenChars(line, '=', '\n').strip()
+					if self.debug: print("run data file: %s"%runName)
+				if (" Server file name " in line):
+					runName = generallib.getBetweenChars(line, '=', '\n').strip()
+					if self.debug: print("run data file: %s"%runName)
+					
+			if line[0] != '#':
+				params = line.split()
+				frameIndex = int(params[1])
+				CCD = int(params[0])
+				if CCD not in uniqueCCDs: uniqueCCDs.append(CCD)
+				frameList.append(frameIndex)
+				columnCount = len(params)
+		
+		numApertures = int( ((columnCount-7)/15) )
+		if self.debug: print("ColumnCount: ", columnCount, "which means %d apertures."%numApertures)
+		frameList = generallib.removeDuplicatesFromList(frameList)
+		if self.debug: 
+			print("The run in file %s contains %d frames. Start frame: %d End frame: %d"%(filename, len(frameList), min(frameList), max(frameList)))
+			print("CCDS:", uniqueCCDs)
+		ultracam = False
+		hipercam = False
+		ultraspec = False
+		if len(uniqueCCDs) == 3:
+			if self.debug: print("This file has 3 CCDs. It is an ULTRACAM file.")
+			ultracam = True
+		if len(uniqueCCDs) > 3:
+			if self.debug: print("This file has mare than 3 CCDs. It is a HIPERCAM file.")
+			hipercam = True
+		if len(uniqueCCDs) == 1: 
+			if self.debug: print("This file has 1 CCD. It is an ULTRASPEC file.")
+			ultraspec = True
+
+		if (ultracam): CCDs = [1, 2, 3]
+		if (ultraspec): CCDs = [1]
+		if (hipercam): CCDs = uniqueCCDs
+		for CCD in CCDs: 
+			for aperture in range(1, numApertures+1):
+				apertureIndex = 15*(aperture-1) + 7
+				if self.debug: print("Reading data for aperture %d, CCD %d"%(aperture, CCD))
+				inputFile.seek(0)
+				MJDs = []
+				counts = []
+				skys = []
+				sigmas = []
+				errors = []
+				timeFlags = []
+				exposures = []
+				FWHMs = []
+				betas = []
+				xs = []
+				ys = []
+				lineCounter = 0
+				data = []
+				for line in inputFile:
+					lineCounter+= 1
+					if self.debug: 
+						sys.stdout.write("\rLine number: %d    "%(lineCounter))
+						sys.stdout.flush()
+					if line[0] != '#':
+						params = line.split()
+						# print params
+						CCDValue = int(params[0])
+						#apertureValue = int(params[apertureIndex])
+						logEntry = {}
+						if CCDValue == CCD: 
+							frameIndex = int(params[1])
+							MJD = float(params[2])
+							exposure = float(params[4])
+							FWHM = float(params[5])
+							beta = float(params[6])
+							x = float(params[apertureIndex])
+							y = float(params[apertureIndex + 2])
+							counts = float(params[apertureIndex + 8])
+							counts_err = float(params[apertureIndex + 9])
+							sky = float(params[apertureIndex + 10])
+							errorflag = int(params[apertureIndex + 14])
+							logEntry = {
+								'MJD': MJD,
+								'exposure': exposure, 
+								'FWHM': FWHM,
+								'beta': beta,
+								'x': x,
+								'y': y,
+								'counts' : counts,
+								'counts_err' : counts_err,
+								'sky' : sky,
+								'errorflag' : errorflag
+							}
+							if errorflag==0: data.append(logEntry)
+							if self.debug: print(logEntry) 
+						
+			
+				object = target("%s_aper_%d_ccd_%d"%(targetName, aperture, CCD))
+				object.telescope = "NTT"				
+				object.telescopeName = "New Technology Telescope"
+				if ultracam: object.source = "ULTRACAM"
+				else: object.source = "ULTRASPEC"
+				for d in data:
+					object.appendData(d)
+				object.fluxColumn = "counts"
+				object.fluxErrorColumn = "counts_err"
+				object.dateColumn = "MJD"
+				objects.append(object)
+				if self.debug: print()
+		inputFile.close()
+		return objects

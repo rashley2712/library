@@ -13,8 +13,11 @@ class heliocentric:
 		{ 'name': 'MLS', 'longitude': -110.7889 , 'latitude': 32.4433, 'elev': 2790. },
 		{ 'name': 'SuperWASP', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
 		{ 'name': 'W1m', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
+		{ 'name': 'WHT', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
 		{ 'name': 'HST', 'longitude': -17.8816 , 'latitude': 28.7606, 'elev': 2326. },
-		{ 'name': 'Arto', 'longitude': 26.6 , 'latitude': 62.15, 'elev': 150. }		
+		{ 'name': 'Arto', 'longitude': 26.6 , 'latitude': 62.15, 'elev': 150. },		
+		{ 'name': 'TNT', 'longitude': 98.48 , 'latitude': 18.57, 'elev': 2457. },		
+		{ 'name': 'NTT', 'longitude': 289.27 , 'latitude': -29.2567, 'elev': 2347. }		
 		]
 	
 	def __init__(self):
@@ -97,6 +100,7 @@ class ephemerisObject:
 		self.gamma_error = None
 		self.K2 = None
 		self.K2_error = None
+		self.orbit = False
 
 	def setCoords(self, ra, dec):
 		self.ra = ra
@@ -155,6 +159,8 @@ class ephemerisObject:
 				if tokens[0] == "N": self.N = int(tokens[1])
 				if tokens[0] == "Chi2_red":
 					self.chi2red = float(tokens[1])
+		if self.Period != 0: self.orbit = True
+		file.close()
 				
 
 	def parseCoords(self, coords):
