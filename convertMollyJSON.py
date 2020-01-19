@@ -41,6 +41,7 @@ if __name__ == "__main__":
 			fluxErrors.append(fe)
  
 		head = r.head
+		
 		spectrum = spectrumlib.spectrumObject()
 		npoints = spectrum.setData(wavelengths, flux, fluxErrors)
 		targetName = spectrum.parseHeaderInfo(head)
