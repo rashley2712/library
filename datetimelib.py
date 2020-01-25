@@ -3,7 +3,6 @@ import json
 import generallib
 import astropy
 from astropy.coordinates import SkyCoord, EarthLocation
-import slbarycentric
 import sys
 
 class heliocentric:
