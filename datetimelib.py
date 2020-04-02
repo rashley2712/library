@@ -22,6 +22,7 @@ class heliocentric:
 	def __init__(self):
 		self.telescope = None
 		self.target = None
+		self.debug = False
 
 	def setTelescope(self, telescopeName):
 		for t in heliocentric.telescopes:
@@ -44,8 +45,8 @@ class heliocentric:
 			print("We don't know the coordinates of the target. Exiting.")
 
 		targetRADEC = generallib.toSexagesimal((self.target['ra'], self.target['dec']))
-		print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
-		print('Observatory: ', self.telescope)
+		if self.debug: print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
+		if self.debug: print('Observatory: ', self.telescope)
 
 		targetCoords = astropy.coordinates.SkyCoord(self.target['ra'], self.target['dec'], unit='deg')
 
@@ -70,8 +71,9 @@ class heliocentric:
 			print("We don't know the coordinates of the target. Exiting.")
 
 		targetRADEC = generallib.toSexagesimal((self.target['ra'], self.target['dec']))
-		print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
-		print('Observatory: ', self.telescope)
+		if self.debug: 
+			print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
+			print('Observatory: ', self.telescope)
 
 		targetCoords = astropy.coordinates.SkyCoord(self.target['ra'], self.target['dec'], unit='deg')
 
@@ -100,6 +102,7 @@ class ephemerisObject:
 		self.K2 = None
 		self.K2_error = None
 		self.orbit = False
+		self.debug = False
 
 	def setCoords(self, ra, dec):
 		self.ra = ra
@@ -120,7 +123,11 @@ class ephemerisObject:
 		phase = self.getPhase(HJD)
 		RV = self.gamma + self.K2 * numpy.sin(numpy.pi*2.0*phase)
 		return RV
-		
+
+	def getNearestCyclenumber(self, HJD):
+		HJD_difference = HJD - self.T0
+		norbits = round(HJD_difference / self.Period)
+		return norbits		
 
 	def getOrbits(self, HJD):
 		HJD_difference = HJD - self.T0
@@ -163,7 +170,7 @@ class ephemerisObject:
 				
 
 	def parseCoords(self, coords):
-		print("Given coords:", coords)
+		if self.debug: print("Given coords:", coords)
 		raHours = int(coords[0])
 		raMinutes = int(coords[1])
 		raSeconds = float(coords[2])
@@ -178,7 +185,7 @@ class ephemerisObject:
 		decCalc = decDegrees + decMinutes/60. + decSeconds/3600.
 		if sign == '-':
 			decCalc = -1.0 * decCalc
-		print("RA:", raDegrees, "DEC:", decCalc)
+		if self.debug: print("RA:", raDegrees, "DEC:", decCalc)
 		return raDegrees, decCalc
 
 	def __str__(self):

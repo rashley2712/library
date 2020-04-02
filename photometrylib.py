@@ -44,8 +44,15 @@ class target():
 		trimmedData = []
 		errorColumn = self.fluxErrorColumn
 		for d in self.data:
-			print(d)
 			if not abs(d[errorColumn]) > limit:
+				trimmedData.append(d)
+		print("Trimmed %d points out of %d."%(len(self.data) - len(trimmedData), len(self.data)))
+		self.data = trimmedData
+
+	def trimByValue(self, field, value, upper=True):
+		trimmedData = []
+		for d in self.data:
+			if d[field]>value:
 				trimmedData.append(d)
 		print("Trimmed %d points out of %d."%(len(self.data) - len(trimmedData), len(self.data)))
 		self.data = trimmedData
@@ -55,6 +62,18 @@ class target():
 			HJD = d['HJD']
 			phase = self.ephemeris.getPhase(HJD)
 			d['phase'] = phase
+
+	def cutByPhase(self, startPhase, endPhase):
+		# Removes all datapoints lying within (startPhase, endPhase) (both should be values <1)
+		newData = []
+		for d in self.data:
+			if (d['phase'] < startPhase) or (d['phase']>endPhase):
+				newData.append(d)
+		oldLength = len(self.data)
+		self.data = newData
+		newLength = len(self.data)
+		print("Trimmed %d points to %d points."%(oldLength, newLength))
+
 
 	def phaseBin(self, numBins = 100):
 		bins = []
@@ -803,6 +822,7 @@ class loadPhotometry():
 		object = target(data[0]['Object'])	
 		object.telescope = "Arto"
 		object.source = "Arto"
+		object.loadedFromFilename = filename
 		for d in data:
 			object.appendData(d)
 		object.fluxColumn = "mag"
