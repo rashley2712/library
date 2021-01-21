@@ -24,6 +24,10 @@ class heliocentric:
 		self.target = None
 		self.debug = False
 
+	def showTelescopes(self):
+		for t in heliocentric.telescopes:
+			print("%s (%.2f, %.2f, %.0f)"%(t['name'], t['longitude'], t['latitude'], t['elev']))
+
 	def setTelescope(self, telescopeName):
 		for t in heliocentric.telescopes:
 			if t['name'] == telescopeName:
@@ -60,6 +64,8 @@ class heliocentric:
 		hjd = [t.mjd for t in corrected_times]
 		return hjd
 
+
+
 	def convertJDtoHJD(self, JD):
 		if self.telescope is None:
 			print("We don't know the location of the telescope. Exiting")
@@ -87,6 +93,32 @@ class heliocentric:
 		hjd = [t.jd for t in corrected_times]
 		return hjd
 
+	def convertHJDtoJD(self, HJD):
+		if self.telescope is None:
+			print("We don't know the location of the telescope. Exiting")
+			return
+
+		obsLocation = astropy.coordinates.EarthLocation(lon = self.telescope['longitude'], lat = self.telescope['latitude'], height = self.telescope['elev'])
+
+		if self.target is None:
+			print("We don't know the coordinates of the target. Exiting.")
+
+		targetRADEC = generallib.toSexagesimal((self.target['ra'], self.target['dec']))
+		if self.debug: 
+			print("Target position: %s (%f, %f)"%(targetRADEC, self.target['ra'], self.target['dec']))
+			print('Observatory: ', self.telescope)
+
+		targetCoords = astropy.coordinates.SkyCoord(self.target['ra'], self.target['dec'], unit='deg')
+
+		from astropy import time, coordinates as coord, units as u
+		times = time.Time(HJD, format='jd', scale='utc', location=obsLocation)
+		ltt_bary = times.light_travel_time(targetCoords)
+		# print(ltt_bary) 
+		time_barycentre = times.tdb - ltt_bary
+		#time_barycentre = times.tdb 
+		corrected_times = time_barycentre
+		jd = corrected_times.jd
+		return jd
 
 
 class ephemerisObject:

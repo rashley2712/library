@@ -63,14 +63,8 @@ class configClass():
 				else:
 					setattr(self, setting['name'], False)
 			if setting['type'] == "label":
-				if hasattr(self, 'label'):
-					print("label already exists!")
-					if not hasattr(self, 'labels'): self.labels = []
-					self.labels.append(self.label)
-					print("Current label", self.label)
-					multipleLabels = True
-				else:
-					multipleLabels = False
+				if not hasattr(self, 'labels'):
+					self.labels = []
 				labelObject = {}
 				labelObject['x'] = float(fields[1])
 				labelObject['y'] = float(fields[2])
@@ -78,11 +72,7 @@ class configClass():
 				for piece in fields[3:]:
 					text+=piece + " "
 				labelObject['text'] = text
-				print(labelObject)
-				setattr(self, setting['name'], labelObject)
-				if multipleLabels:
-					print("Adding to ", self.labels)
-					self.labels.append(labelObject)
+				self.labels.append(labelObject)
 					 
 		except ValueError:
 			print("Warning: Could not read the setting for: %s"%(setting['name']))
