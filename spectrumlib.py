@@ -3,6 +3,37 @@ import json
 import scipy.interpolate
 import scipy.integrate
 
+class spectrumArray:
+	def __init__(self):
+		self.spectra = []
+		self.filename = "spectra.json"
+
+	def addSpectrum(self, spectrum):
+		self.spectra.append(spectrum)
+
+	def writeDB(self):
+		outputfile = open(self.filename, 'w')
+		outputfile.write("[ ")
+		for index, object in enumerate(self.spectra):
+			#json.dump(object, outputfile, indent=4)
+			print(object)
+			outputfile.write((object.getJSON()))
+			if index!=len(self.spectra)-1: outputfile.write(", \n")
+		outputfile.write("]")
+		outputfile.close()
+
+	def loadDB(self):
+		inputfile = open(self.filename)
+		db = json.load(inputfile)
+		print(len(db),"spectra loaded.")
+		inputfile.close()
+		for d in db: 
+			s = spectrumObject()
+			s.initFromJSON(d)
+			self.addSpectrum(s)
+	
+
+
 class spectrumObject:
 	def __init__(self):
 		self.wavelengths = []
@@ -265,6 +296,20 @@ class spectrumObject:
 				newFlux.append(f)
 		return (newWavelengths, newFlux)
 
+	def getJSON(self):
+		object = {}
+		for key in self.__dict__.keys():
+			data = getattr(self, key)
+			# print key, type(data)
+			if type(data)==numpy.float32:
+				data = float(data)
+			if type(data)==numpy.ndarray:
+				data = numpy.array(data).tolist()
+			if type(data)==list:
+				data = numpy.array(data).tolist()
+			object[key] = data
+		return json.dumps(object, indent=4)
+	
 	def writeToJSON(self, filename, clobber=True):
 		object = {}
 		for key in self.__dict__.keys():
@@ -305,6 +350,19 @@ class spectrumObject:
 			setattr(self, key, value)
 		inputfile.close()
 		self.loadedFromFilename = filename
+
+	def initFromJSON(self, jsonData):
+		jsonObject = jsonData
+		for key in jsonObject.keys():
+			keyString = str(key)
+			value = jsonObject[key]
+			if isinstance(value, (str)): 
+				value = str(value)
+			if isinstance(value, (list)):
+				value = numpy.array(value)
+			setattr(self, key, value)
+		self.loadedFromFilename = "unknown"
+
 		
 	def loadFromSLOAN(self, filename):
 		inputfile = open(filename, "rt")
